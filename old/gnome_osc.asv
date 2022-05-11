@@ -1,0 +1,141 @@
+f_sampling = 1e5; % Hz
+t_end = 1; % secs
+
+t_step = 1/f_sampling;
+t = 0 : t_step : t_end;
+
+num_timesteps = f_sampling * t_end;
+
+f_0 = 100; % Hz, default axion frequency, with gnome at 0
+omega_0 = 2*pi*f_0;
+
+%% uncorrelated gaussian points
+f = randn(1, num_timesteps);
+
+%% correlate the points
+correlation_time = 0.1; % secs
+boxcar_length = correlation_time * f_sampling; % samples
+f_correlated = movmean(f, boxcar_length);
+
+% plot directly
+%{
+figure
+subplot(2, 1, 1)
+plot(f)
+subplot(2, 1, 2)
+plot(f_correlated)
+%}
+
+% plot histograms
+%{
+figure
+subplot(2, 1, 1)
+histogram(f)
+subplot(2, 1, 2)
+histogram(f_correlated)
+%}
+
+% the moving mean averaging clearly reduces the std. deviation of the
+% points, but by how much? must be a theoretical answer, or could just
+% calculate from the data
+"std.dev. of plain Gaussian"
+std(f)
+"std.dev. of "
+
+% plot autocorrelation
+%{
+figure
+subplot(2, 1, 1)
+[acf, k] = autocorr(f, NumLags=num_timesteps-1);
+plot(k/f_sampling, acf)
+subplot(2, 1, 2)
+[acf, k] = autocorr(f_correlated, NumLags=num_timesteps-1);
+plot(k/f_sampling, acf)
+%}
+
+%{
+df = 10;% Hz, how far the gnome can change the frequency
+
+% still gnome   
+gnome_still = df * zeros(size(t));
+
+wave = calc_gnome(t, t_step, f_sampling, omega_0, gnome_still);
+%nsd_pwelch(wave, 1, f_sampling);
+
+% f = calc_iwave(f_sampling, f_0, t, wave);
+% plot(t, f_0 + gnome_still);
+% hold on
+% plot(t, f);
+% legend('original', 'iwave')
+
+% step gnome
+gnome_step = df * square(t);
+wave = calc_gnome(t, t_step, f_sampling, omega_0, gnome_step);
+
+% sinusoidal gnome
+f_gnome = 0.2; % Hz
+gnome_sin = df * cos(2*pi*f_gnome*t);
+wave = calc_gnome(t, t_step, f_sampling, omega_0, gnome_sin);
+
+f = calc_iwave(f_sampling, f_0, t, wave);
+plot(t, f_0 + gnome_sin);
+hold on
+plot(t, f);
+legend('original', 'iwave')
+
+
+% triangle gnome
+f_gnome = 2; % Hz
+gnome_tri = - df * sawtooth(2*pi*f_gnome*t, 0.5); % minus just aligns sin and tri
+
+%wave = calc_gnome(t, t_step, f_sampling, omega_0, gnome_tri);
+%nsd_pwelch(wave, 1, f_sampling);
+
+%xline(f_0)
+%xline(f_0 + df)
+%xline(f_0 - df)
+
+%legend('still gnome', 'sinusoidal gnome', 'triangle gnome')
+
+
+function x = calc_gnome(t, t_step, f_sampling, omega_0, gnome)
+    x = zeros(size(t));
+    gnome_integral = 0;
+
+    for i = 1 : length(t)
+        x(i) = cos(omega_0*t(i) + 2*pi*gnome_integral);
+        gnome_integral = gnome_integral + gnome(i)*t_step;
+    end
+end
+
+function freq = calc_iwave(f_sampling, f_0, time, wave)
+    % initialise iwave pll
+    tau = 0.02; % secs
+    start_time = 0.0; % secs
+    fstate = iwavePllConstruct(f_sampling, tau, f_0, start_time);
+    
+    % run iwave pll
+    [dout, qout, amp, error, freq, fstate] = iwavePllRun(wave, fstate);
+
+    % plot results
+    figure;
+    subplot(2,2,1);
+    plot(time,amp,'-');
+    xlabel('time (s)');
+    ylabel('amplitude');
+    subplot(2,2,2);
+    plot(time,error,'-');
+    xlabel('time (s)');
+    ylabel('error');
+    subplot(2,2,3);
+    plot(time,freq,'-');
+    xlabel('time (s)');
+    ylabel('frequency (Hz)');
+    subplot(2,2,4);
+    plot(time,dout,'-',time,qout,'-');
+    xlabel('time (s)');
+    ylabel('D and Q out');
+    
+    uiwait
+end
+%}

@@ -1,0 +1,297 @@
+function improvement = rr(t)
+
+f_sampling = 2e9; % Hz
+t_end = 0.01; % secs
+
+t_step = 1/f_sampling;
+t = 0 : t_step : t_end;
+
+%% constants
+c = 3e8; % m/s
+hbar_times_c = 2e-7; % eV m
+h_eV = 4.136e-15; % eV
+k_B = 1.38065e-23; % m2 kg s-2 K-1
+h = 6.62607015e-34; % m2 kg / s
+
+%% parameters
+axion_rest_energy = 2e-6; % eV/c2
+axion_velocity = 220e3; % m/s
+T = 10e-3; % K
+axion_power = 1.52e-21; % W, from eq 2.28 of Daw thesis
+
+%% uncorrelated gaussian points
+f_uncorrelated = randn(size(t));
+
+%% correlate the points
+de_broglie_wavelength = 2*pi * hbar_times_c / (axion_rest_energy * axion_velocity/c);
+t_coherence = de_broglie_wavelength / axion_velocity;
+
+correlation_time = t_coherence;
+assert(correlation_time < t_end / 2) % this not being true caused a long problem once
+boxcar_length = correlation_time * f_sampling; % samples
+f_correlated = movmean(f_uncorrelated, boxcar_length);
+
+% plot directly
+%{
+figure
+subplot(2, 1, 1)
+plot(t, f_uncorrelated)
+subplot(2, 1, 2)
+plot(t, f_correlated)
+uiwait
+%}
+
+% plot histograms
+%{
+figure
+subplot(2, 1, 1)
+histogram(f_uncorrelated)
+subplot(2, 1, 2)
+histogram(f_correlated)
+uiwait
+%}
+
+% the moving mean averaging clearly reduces the std. deviation of the
+% points, but by how much? must be a theoretical answer, or could just
+% calculate from the data. By inspection, it appears to be reduced by a 
+% factor of sqrt(boxcar_length)
+std_dev_uncorrelated = std(f_uncorrelated);
+std_dev_correlated = std(f_correlated);
+
+% plot autocorrelation
+%{
+figure
+subplot(2, 1, 1)
+[acf, k] = autocorr(f, NumLags=num_timesteps-1);
+plot(k/f_sampling, acf)
+subplot(2, 1, 2)
+[acf, k] = autocorr(f_correlated, NumLags=num_timesteps-1);
+plot(k/f_sampling, acf)
+uiwait
+%}
+
+%% turn into an array of frequencies
+% renormalise f_correlated to have std.dev = 1
+f_renormalised = f_correlated / std_dev_correlated;
+% confirm this worked
+std_dev_renormalised = std(f_renormalised);
+% now do the axion stuff, commented out while we work just on noise
+
+f_0 = axion_rest_energy / h_eV; % Hz, default axion frequency
+axion_linewidth = f_0 * 0.5 * (axion_velocity / c)^2;
+axion_Q = f_0 / axion_linewidth;
+
+% array in time of correlated frequencies with given linewidth
+f_axion = f_0 + axion_linewidth * f_renormalised;
+
+%f_axion = linspace(4e7, 6e7, length(t));
+
+%% calculate a wave in time with the given frequency
+signal = calc_wave_with_frequency(t, t_step, f_axion);
+signal_power = bandpower(signal); % = 0.5000 - must be a reason for this exactness
+signal = signal / sqrt(signal_power) * sqrt(axion_power);
+power_signal = bandpower(signal);
+
+%% calculate thermal noise;
+noise = randn(size(t)); % this noise has total power 1, now scale it
+
+dPdf = @(f) 0.5*h*f + h*f/(exp(h*f/k_B/T)-1);
+power_noise = integral(dPdf, 0, f_sampling/2);
+
+noise = noise * sqrt(power_noise);
+power_noise_meas = bandpower(noise);
+
+% plot noise spectra
+%f = f_0/2 : f_0*2
+%hold on
+%loglog(f, amp)
+%loglog(f, dPdf(f))
+%yline(power_noise)
+%return
+
+%SNR = power_signal / power_noise * sqrt( axion_linewidth * t_end);
+
+%% run iwave
+
+% calculate avg df/dt (for calculating tau_iwave)
+dfdsample = f_axion(1:end-1) - f_axion(2:end);
+dfdt = dfdsample * f_sampling;
+dfdt_avg = rms(dfdt);
+
+tau_iwave_opt = (288 * pi^4 * f_0^2 * dfdt_avg^2 )^(-1/6); % tau_opt from the iwave paper
+tau_iwave = 1e-5; % before adding noise
+tau_iwave = 3e-4;
+tau_iwave = 5e-4;
+
+% atm we're running iwave on the signal not the signal + noise
+iwave_input = signal + noise;
+
+band_width = 150;
+band = [f_0-band_width/2, f_0+band_width/2];
+iwave_input = bandpass(iwave_input, band, f_sampling);
+
+noise_power_in_band = bandpower(noise, f_sampling, band);
+signal_power_in_band = bandpower(signal, f_sampling, band);
+combined_power_in_band = bandpower(iwave_input, f_sampling, band);
+combined_power_total = bandpower(iwave_input);
+
+f_iwave = extract_frequency(iwave_input, f_sampling, f_0, tau_iwave);
+
+% now remove the start as it can go a bit off
+start_secs = 0.0005;
+start_samples = start_secs * f_sampling;
+t       = t      (start_samples:end);
+f_iwave = f_iwave(start_samples:end);
+f_axion = f_axion(start_samples:end);
+signal  = signal (start_samples:end);
+noise   = noise  (start_samples:end);
+
+% find avg diff between iwave and original
+avg_dist_dynamic = rms(f_iwave - f_axion);
+Qmax_dynamic = f_0 / avg_dist_dynamic;
+
+avg_dist_static = rms(f_0 * ones(size(t)) - f_axion);
+Qmax_static = f_0 / avg_dist_static;
+
+% plot iwave before and after
+%{
+figure
+plot(t, f_axion)
+lim = ylim();
+hold on
+plot(t, f_iwave)
+ylim(lim)
+legend('before iwave', 'after iwave')
+xlabel('time (s)')
+ylabel('frequenzy (Hz)')
+xline(t_coherence)
+%}
+
+%% now feed our wave into a resonator
+
+Q_static = Qmax_static;
+static_resonator_width = f_0 / Q_static;
+Q_dynamic = Qmax_dynamic;
+dynamic_resonator_width = f_0 / Q_dynamic;
+
+f = f_0 * ones(size(t));
+
+static_signal = resonator(signal, f_0, f, Q_static, f_sampling);
+static_noise  = resonator(noise,  f_0, f, Q_static, f_sampling);
+static_gain = bandpower(static_signal) / bandpower(signal);
+static_SNR = bandpower(static_signal) / bandpower(static_noise)
+
+%display_spectra(signal, static_signal, f_sampling);
+%hold on
+%{
+omega_0 = 2*pi * f_0;
+Delta_0 = omega_0 / f_sampling;
+w = Delta_0 / (2 * Q);
+Delta = 2*pi*f/f_sampling;
+A_Delta = (1 - exp(-w)) ./ sqrt(1 - 2*exp(-w)*cos(Delta - Delta_0) + exp(-2*w)); % from Ed paper
+plot(f, A_Delta, 'DisplayName','A(Delta)')
+
+s = 1i * 2 * pi * f;
+Gamma = omega_0 / Q;
+Hs = Gamma * s ./ ( s.^2 + Gamma*s + omega_0^2 ); % also from Ed paper
+plot(f, abs(Hs), 'DisplayName','|H(s)|')
+%}
+%uiwait
+f = f_iwave;
+dynamic_signal = resonator(signal, f_0, f, Q_dynamic, f_sampling);
+dynamic_noise  = resonator(noise,  f_0, f, Q_dynamic, f_sampling);
+%dynamic_gain = bandpower(dynamic_signal) / bandpower(signal);
+dynamic_SNR = bandpower(dynamic_signal) / bandpower(dynamic_noise)
+%display_spectra(static_noise, static_signal, f_sampling);
+
+improvement = dynamic_SNR / static_SNR
+
+%% end
+
+% pass the supplied wave x through a resonator
+% given centre frequency f_0_centre
+% resonant frequency (array same size as x) f_0,
+% Q, and f_sampling
+function y = resonator(x, f_0_centre, f_0, Q, f_sampling)
+    % this all from Daw 2019 appendix
+    % set up params
+    omega_0 = 2*pi * f_0;
+    Delta_0 = omega_0 / f_sampling;
+    w = Delta_0 / (2 * Q);  
+    
+    % find the quadratures
+    I = x;
+    quarter_period_secs = 1/4 * 1/f_0_centre;
+    quarter_period_samples = quarter_period_secs * f_sampling;
+    Q = delay(x, quarter_period_samples);
+
+    x_q = I + 1i * Q;
+    y_q = zeros(size(x_q));
+    
+    % do the algorithm
+    for i = 2 : length(x_q) % should it be Delta_0(i) or (i-1)?
+        y_q(i) = exp(-w(i) + 1i * Delta_0(i))*y_q(i-1) + (1 - exp(-w(i)))*x_q(i);
+    end
+    
+    % recombine the quadratures
+    I = delay(real(y_q), quarter_period_samples);
+    Q = imag(y_q);
+    
+    y = I + Q;
+end
+
+% delay a signal by the specified number of samples.
+% pads the start with zeroes
+function x_delayed = delay(x, delay_samples)
+    delay_samples = floor(delay_samples); % needs to be integer
+    x_delayed = zeros(size(x));
+    x_delayed(delay_samples+1:end) = x(1:end-delay_samples);
+end
+
+% show two spectra and their transfer function
+function [f, ratio] = display_spectra(x, y, f_sampling)
+    [amp_bef, f] = nsd_pwelch(x, 0.000005, f_sampling);
+    [amp_aft, f] = nsd_pwelch(y, 0.000005, f_sampling);
+
+    subplot(1,2,1)
+    loglog(f, amp_bef)
+    hold on 
+    loglog(f, amp_aft)
+    legend('before', 'after', 'Location', 'southwest')
+    xlim([1e7, f_sampling/2])
+    title('simulated power spectrum before/after resonant filter')
+
+    subplot(1,2,2)
+    ratio = amp_aft./amp_bef;
+    loglog(f, ratio)
+    legend('simulation', 'Location', 'southwest')
+    title('filter transfer function')
+    xlim([1e7, f_sampling/2])
+
+    [pks,locs,w,p] = findpeaks(ratio, WidthReference="halfheight", SortStr='descend');
+    maxindex = 1;
+    peak_freq = f(locs(maxindex));
+    peak_w = w(maxindex)
+    %peak_Q = peak_freq / peak_w
+end
+
+% calculate a wave in time with the given frequency in time
+function x = calc_wave_with_frequency(t, t_step, f)
+    x = zeros(size(t));
+    f_integral = 0;
+
+    for i = 1 : length(t)
+        x(i) = sin(2*pi*f_integral);
+        f_integral = f_integral + f(i)*t_step;
+    end
+end
+
+% extract the frequency from a wave using IWAVE
+function freq = extract_frequency(wave, f_sampling, f_guess, tau)
+    % initialise iwave pll
+    start_time = 0.0; % secs
+    fstate = iwavePllConstruct(f_sampling, tau, f_guess, start_time);
+    
+    % run iwave pll
+    [dout, qout, amp, error, freq, fstate] = iwavePllRun(wave, fstate);
+end

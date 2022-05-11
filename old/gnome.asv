@@ -1,0 +1,23 @@
+f_sampling = 1e3;
+t_end = 200;
+
+t = 0 : 1/f_sampling : t_end;
+
+
+f = 100;
+
+omega_0 = 2*pi*f
+0.01;
+
+x = cos(omega*t);
+x2 = zeros(size(t));
+
+
+for i = 1 : length(t)
+    x2(i) = cos(omega*t(i));
+end
+
+
+WinTime = 1;
+    
+nsd_pwelch(x2, 1, f_sampling);
