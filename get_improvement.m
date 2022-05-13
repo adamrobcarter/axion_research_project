@@ -9,7 +9,8 @@ Q_static = Qmax_static;
 %static_resonator_width = f_0 / Q_static;
 Q_dynamic = Qmax_dynamic;
 %dynamic_resonator_width = f_0 / Q_dynamic;
-
+improvement = Q_dynamic / Q_static;
+%{
 f = f_0 * ones(size(t));
 
 static_signal = resonator(signal, f_0, f, Q_static, f_sampling);
@@ -25,6 +26,6 @@ dynamic_SNR = bandpower(dynamic_signal) / bandpower(dynamic_noise);
 %display_spectra(static_noise, static_signal, f_sampling);
 
 improvement = dynamic_SNR / static_SNR;
-
+%}
 end
 
