@@ -11,6 +11,8 @@ function adstyle(width,height)
 %     rev 3rd Feburary 2014
  
 % make plot size defaults
+figure
+
 set(gcf,'DefaultAxesFontName','Helvetica');
 set(gcf,'DefaultAxesFontSize',12);
 set(gcf,'DefaultAxesFontWeight','normal');
@@ -22,3 +24,4 @@ set(gcf,'PaperUnits','centimeters');
 set(gcf,'units','centimeters','position',[16, 8, width, height])
 
 box on
+axis padded

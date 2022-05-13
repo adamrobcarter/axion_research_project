@@ -1,9 +1,9 @@
 function input = prepare_iwave_input(signal, f_0, bandwidth, f_sampling)
+% f_0 is the centre of the band we do the pre-filtering with
 
-wo = f_0 / (f_sampling/2);  
-bw = bandwidth / (f_sampling/2);
-[b, a] = iirpeak(wo, bw);
-input = filter(b, a, signal);
+Q = f_0 / bandwidth;
+
+input = resonator(signal, f_0, f_0*ones(size(signal)), Q, f_sampling);
     
 end
 
