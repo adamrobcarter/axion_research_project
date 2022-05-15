@@ -12,7 +12,8 @@ hbar_times_c = 2e-7; % eV m
 axion_rest_energy = 2e-6; % eV/c2
 axion_velocity = 240e3; % m/s
 T = 10e-3; % K
-axion_power = 1.5e-21; % W, from eq 2.28 of Daw thesis
+axion_power = 1.0e-21; % W, from eq 2.28 of Daw thesis
+axion_power_over_Q = axion_power / 7e4;
 
 %% axion signal params
 f_a_original = axion_rest_energy / h_eV; % Hz, default axion
@@ -20,6 +21,7 @@ axion_linewidth = f_a_original * 1e-6;
 axion_Q = f_a_original / axion_linewidth;
 
 %% heterodyne
+heterodyning_ratio = 20;
 f_a = f_a_original - f_a_original * 19 / 20;
 
 de_broglie_wavelength = 2*pi * hbar_times_c / (axion_rest_energy * axion_velocity/c);

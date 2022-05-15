@@ -13,25 +13,24 @@ yrm2=ps.ymemrealusb;
 yim2=ps.ymemimagusb;
 
 % run the filter over the input data
-dcount = 1; % to save rewriting all the arrays, let's just have arrays of length 1
 % trap NANs
-%if isnan(pindata(dcount))!=0
-%    pindata(dcount)=0;
+%if isnan(pindata)!=0
+%    pindata=0;
 %    foundnan=1;
 %    % show error here 
 %end
-% run 1f iwave
-yr=ps.adiag*yrm - ps.aoffdiag*yim + ps.b*pindata(dcount);
+% run 1f iwavea
+yr=ps.adiag*yrm - ps.aoffdiag*yim + ps.b*pindata;
 yi=ps.aoffdiag*yrm + ps.adiag*yim;
-pdout(dcount) = ps.r11*yr + ps.r12*yi;
-pqout(dcount) = ps.r12*yr + ps.r22*yi;
+pdout = ps.r11*yr + ps.r12*yi;
+pqout = ps.r12*yr + ps.r22*yi;
 yrm=yr;
 yim=yi;
 % calculate phase discriminant
-asq=pdout(dcount)*pdout(dcount)+pqout(dcount)*pqout(dcount);  
-x2r=pindata(dcount)*pdout(dcount)+pqout(dcount)*pqout(dcount)-asq;
-x2i=(pindata(dcount)-pdout(dcount))*pqout(dcount);
-% run 2f iwave on the phase discriminant */
+asq=pdout*pdout + pqout*pqout;
+x2r=pindata*pdout + pqout*pqout - asq;
+x2i=(pindata-pdout)*pqout;
+% run 2f iwave on the phase discriminant
 yr2=ps.adiagusb*yrm2 - ps.aoffdiagusb*yim2 + ps.busb*x2r;
 yi2=ps.aoffdiagusb*yrm2 + ps.adiagusb*yim2 + ps.busb*x2i;
 yrm2=yr2;
@@ -42,14 +41,14 @@ if asq>0
 else
   esig=2*(x2i-yi2);
 end
-paout(dcount)=sqrt(asq);
-peout(dcount)=esig;
+paout=sqrt(asq);
+peout=esig;
 % close loop by modifying delta
 deltaprefold = ps.delta - ps.gain*esig;
 % run single frequency foldback to stay within nyquist band
 delta=iwave_firstbz(deltaprefold);
 % write frequency to data output
-pfout(dcount) = delta*ps.srate / (2*pi);
+pfout = delta*ps.srate / (2*pi);
 % recalculate the elements of the state data that are affected
 % by the change in delta due to the closed feedback loop
 w = ps.w;
