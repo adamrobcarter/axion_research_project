@@ -1,10 +1,12 @@
-function f_iwave = do_iwave_and_resonator(t, noise, signal, f_0_start, band_width, f_sampling, limiting_band, tau)
+function [f_iwave, signal_out] = do_iwave_and_resonator(t, noise, signal, f_0_start, band_width, f_sampling, limiting_band, tau)
 
 f_guess = f_0_start;
 
 STATE_PS = iwave_setup(f_sampling, tau, f_guess, 0);
 state_res = resonator_setup();
+
 f_iwave = zeros(size(t));
+signal_out = zeros(size(t));
 
 f_0_current = f_0_start;
 
@@ -21,6 +23,7 @@ for i = 1 : length(t)
         f_0_current = limiting_band(1);
     end
     f_iwave(i) = f_0_current;
+    signal_out(i) = resonator_output;
 end
 
 end
