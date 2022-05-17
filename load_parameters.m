@@ -22,7 +22,8 @@ axion_Q = f_a_original / axion_linewidth;
 
 %% heterodyne
 heterodyning_ratio = 20;
-f_a = f_a_original - f_a_original * 19 / 20;
+heterodyning_shift = f_a_original * (heterodyning_ratio - 1)/heterodyning_ratio;
+f_a = f_a_original - heterodyning_shift;
 
 de_broglie_wavelength = 2*pi * hbar_times_c / (axion_rest_energy * axion_velocity/c);
 t_coherence = de_broglie_wavelength / axion_velocity;

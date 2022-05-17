@@ -1,10 +1,14 @@
-function noise = generate_thermal_noise(t, f_sampling, noise_power)
+function noise = generate_thermal_noise(t, noise_power)
+arguments
+    t
+    noise_power = 1
+end
 
 %% generate
 noise = randn(size(t)); % this noise has total power 1, now scale it
 
 noise = noise * sqrt(noise_power);
-noise_power_meas = bandpower(noise);
+%noise_power_meas = bandpower(noise);
 
 % plot noise spectra
 %f = f_0/2 : f_0*2
