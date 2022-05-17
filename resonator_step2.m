@@ -1,5 +1,5 @@
 
-function [state, y] = resonator_step(state, x, f_0, bandwidth, f_sampling)
+function [state, y] = resonator_step2(state, x, f_0, bandwidth, f_sampling)
 % pass the supplied wave x through a resonator
 % given centre frequency f_0_centre
 % resonant frequency (array same size as x) f_0,
