@@ -4,6 +4,7 @@ f_guess = f_0_start;
 
 STATE_PS = iwave_setup(f_sampling, tau, f_guess, 0);
 state_res = resonator_setup();
+state_res2 = resonator_setup();
 
 f_iwave = zeros(size(t));
 signal_out = zeros(size(t));
@@ -23,8 +24,13 @@ for i = 1 : length(t)
         f_0_current = limiting_band(1);
     end
     f_iwave(i) = f_0_current;
+    
+    [state_res2, resonator_output] = resonator_step2(state_res2, signal(i), f_0_current, band_width, f_sampling);
     signal_out(i) = resonator_output;
 end
 
 end
+
+% doing the resonator on signal is equivalent (at steady state) to
+% multiplying the signal by R
 
