@@ -27,3 +27,5 @@ f_a = f_a_original - heterodyning_shift;
 
 de_broglie_wavelength = 2*pi * hbar_times_c / (axion_rest_energy * axion_velocity/c);
 t_coherence = de_broglie_wavelength / axion_velocity;
+
+% KSVZ to DFSZ is divide power by 7.2

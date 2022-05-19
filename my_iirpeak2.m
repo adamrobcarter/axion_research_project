@@ -2,9 +2,9 @@ function [b, a] = my_iirpeak2(f_0, bandwidth, f_sampling)
     % lifted straight from scipy source code: https://github.com/scipy/scipy/blob/v1.8.0/scipy/signal/_filter_design.py#L4946-L5023
     w0 = f_0 / (f_sampling / 2); % normalise to nyquist frequency
 
-    assert(~isnan(w0))
+    assert(~isnan(w0), "w0 is nan")
     assert(w0 > 0, "w0 is negative. f_0:%d, bandwidth:%d, f_sampling:%d", f_0, bandwidth, f_sampling)
-    assert(w0 < 1)
+    assert(w0 < 1, "f_0 must be smaller than f_sampling/2")
 
     w0 = w0*pi;
 
